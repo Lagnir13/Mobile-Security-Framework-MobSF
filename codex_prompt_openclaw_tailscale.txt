@@ -1,0 +1,90 @@
+You are Codex. Generate a **single, complete, production-ready Bash script** for Ubuntu (placeholder distro) that performs a full teardown and clean reinstall of **Openclaw** and **Tailscale**, then configures secure remote control of Openclaw from a smartphone over Tailscale.
+
+## Critical output constraints
+1. Output **only** one markdown fenced code block with language `bash`.
+2. Do not output explanations before/after the code block.
+3. Start the script with a concise header comment describing purpose + major phases.
+4. Script must be thoroughly commented section-by-section.
+5. Script must be safe-by-default and fail fast (`set -Eeuo pipefail` + trap with clear error line info).
+
+## Script requirements
+Design the script as an idempotent, step-by-step workflow with explicit logging (`echo`/`printf`) and clear user prompts where needed.
+
+### 1) Preflight + assumptions
+- Check for root privileges; if not root, re-exec with sudo or exit with clear instruction.
+- Detect Ubuntu version and basic network reachability.
+- Define placeholders at top (editable variables), including:
+  - `TAILSCALE_AUTHKEY="tskey-auth-k3M4SwxotX11CNTRL-GFukR1NPxcPdpkTNzBuKcPNVAABTTDtt"` (placeholder)
+  - Openclaw install source placeholder (repo URL/package URL)
+  - Openclaw service name placeholder (e.g., `openclaw`)
+  - Openclaw listen port placeholder (e.g., `8080`)
+- Warn user before destructive cleanup and require explicit confirmation (`YES` to continue).
+
+### 2) Full removal / purge
+- Stop and disable Openclaw and Tailscale services if present.
+- Remove Openclaw binaries/packages (support apt package + custom install path placeholders).
+- Remove Tailscale packages and daemon state.
+- Purge residual files and configs from common locations (with guarded deletes), for example:
+  - `/etc/openclaw`, `/var/lib/openclaw`, `/var/log/openclaw`, `/opt/openclaw`, `/usr/local/bin/openclaw`
+  - `/etc/default/tailscaled`, `/var/lib/tailscale`, `/etc/systemd/system/tailscaled.service.d`
+  - related systemd unit drop-ins for both services
+- Remove leftover users/groups created specifically for Openclaw (if configured).
+- Run apt cleanup (`autoremove`, `autoclean`) safely.
+
+### 3) Verify cleanup
+- Verify services are absent/stopped/disabled.
+- Verify target directories/files no longer exist.
+- Verify no lingering processes (`pgrep`) for openclaw/tailscaled.
+- Print a cleanup report with pass/fail checks and abort if critical cleanup failed.
+
+### 4) Reinstall latest Tailscale
+- Install Tailscale using official apt repo flow for Ubuntu (curl GPG key, repo list, apt update, install tailscale).
+- Enable + start `tailscaled`.
+- Authenticate with Tailscale:
+  - Prefer auth key variable if non-placeholder.
+  - If placeholder is unchanged or empty, prompt user interactively to paste auth key.
+  - Include fallback instructions comment for manual browser auth if needed.
+- Run `tailscale up` with secure defaults and comments explaining chosen flags.
+- Show resulting Tailscale IP + status.
+
+### 5) Reinstall Openclaw + dependencies
+- Install required dependencies (placeholder packages; include examples like curl, git, jq, ca-certificates, build/runtime deps).
+- Install Openclaw from placeholder source (e.g., git clone + install script OR package).
+- Recreate required config dirs with secure permissions.
+- Restore/create Openclaw config template with clearly marked user-editable values.
+- Create/refresh a robust `systemd` service unit for Openclaw (if one is not provided), including:
+  - `After=network-online.target tailscaled.service`
+  - restart policy
+  - dedicated user/group placeholders
+- `daemon-reload`, enable, and start service.
+
+### 6) Remote access configuration (phone via Tailscale)
+- Ensure Openclaw binds appropriately (document and enforce secure bind choice).
+- Configure local firewall (UFW if present) to allow Openclaw port from Tailscale interface/range only where feasible.
+- Print exact mobile access URL using detected Tailscale IP and Openclaw port.
+- Add clear comments on securing Openclaw auth credentials and TLS/reverse proxy recommendations.
+
+### 7) Validation and health checks
+- Validate:
+  - `tailscaled` active
+  - `tailscale status` healthy
+  - Openclaw service active
+  - Openclaw TCP port listening
+  - local HTTP health check (if endpoint placeholder exists)
+- Print a final summary block with:
+  - service states
+  - tailscale IP
+  - mobile access URL
+  - next manual action items (if any)
+- Exit non-zero if critical validations fail.
+
+### 8) UX and safety details
+- Every major step must be clearly labeled (`STEP 1`, `STEP 2`, etc.).
+- Use helper functions (`log`, `warn`, `err`, `require_cmd`, `confirm`, `check_service_active`, etc.).
+- Guard destructive removals with path sanity checks (never `rm -rf /`).
+- Highlight all required user decisions/prompts in loud comments and runtime prompts.
+
+## Additional constraints
+- Assume Ubuntu as placeholder but keep comments where distro-specific adjustments may be needed.
+- Do not leave TODO stubs; provide complete command flow with placeholders where exact Openclaw details are unknown.
+- Keep script understandable for a human operator.
